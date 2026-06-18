@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ZIJILAI 自己来 — 给 Claude 装上眼睛和手</title>
+<meta name="description" content="专为 Claude 打造的浏览器侧边栏助手。原生 Claude 能用 MCP 直连浏览器，API 调用的 Claude 够不着——ZIJILAI 给它补上眼睛和手：读网页、点按、填表、管标签，可接入 MCP。OpenAI 兼容，自带 Key，纯本地。" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%232a4ae0'/%3E%3Crect x='57' y='27' width='17' height='46' rx='5' fill='%23fff'/%3E%3Ccircle cx='37' cy='50' r='9.5' fill='%23fff'/%3E%3C/svg%3E" />
+<meta property="og:title" content="ZIJILAI 自己来 — 给 Claude 装上眼睛和手" />
+<meta property="og:description" content="专为 Claude 打造的浏览器侧边栏助手。API 调用的 Claude 够不着浏览器，ZIJILAI 给它补上眼睛和手：读网页、点按、填表、管标签，可接 MCP。自带 Key，纯本地。" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<style>
+  :root{
+    --ink:#14141b; --muted:#6c6c79; --faint:#9a9aa6; --line:#eceaf2;
+    --bg:#ffffff; --soft:#f6f5fb; --card:#ffffff;
+    --accent:#2a4ae0; --accent-2:#5b78ff; --accent-soft:rgba(42,74,224,.08);
+    --ink-rev:#f3f3f7;
+    --maxw:1080px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,sans-serif;
+    color:var(--ink); background:var(--bg); line-height:1.65; -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .mark{width:30px;height:30px;border-radius:9px;background:var(--accent);position:relative;flex:none;box-shadow:0 4px 14px rgba(42,74,224,.28)}
+  .mark::after{content:"";position:absolute;right:5.5px;top:6px;bottom:6px;width:8.5px;border-radius:3px;background:#fff}
+  .mark::before{content:"";position:absolute;left:7.5px;top:50%;transform:translateY(-50%);width:6.5px;height:6.5px;border-radius:50%;background:#fff}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.78);backdrop-filter:saturate(180%) blur(14px);-webkit-backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line)}
+  nav .row{display:flex;align-items:center;gap:12px;height:62px}
+  nav .name{font-weight:800;letter-spacing:.02em;font-size:16px}
+  nav .name small{display:block;font-weight:600;font-size:10.5px;color:var(--muted);letter-spacing:.16em;margin-top:-2px}
+  nav .grow{flex:1}
+  nav a.ghost{color:var(--muted);font-size:14px;font-weight:600;padding:8px 10px}
+  nav a.ghost:hover{color:var(--ink)}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:14px;padding:10px 18px;border-radius:11px;background:var(--accent);color:#fff;border:1px solid transparent;transition:filter .15s,transform .15s}
+  .btn:hover{filter:brightness(1.07)}
+  .btn:active{transform:translateY(1px)}
+  .btn.alt{background:var(--soft);color:var(--ink);border-color:var(--line)}
+  .btn.alt:hover{background:#eeedf6;filter:none}
+
+  /* hero */
+  .hero{padding:74px 0 40px;position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;inset:-20% -10% auto -10%;height:520px;background:radial-gradient(60% 80% at 70% 0%,rgba(91,120,255,.16),transparent 70%);z-index:-1}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:6px 12px;border-radius:999px;letter-spacing:.02em}
+  h1{font-size:clamp(34px,5.4vw,60px);line-height:1.05;letter-spacing:-.03em;font-weight:850;margin:20px 0 0}
+  h1 .g{background:linear-gradient(100deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{font-size:clamp(15px,1.6vw,18px);color:var(--muted);margin:20px 0 0;max-width:34ch}
+  .lede b{color:var(--ink);font-weight:650}
+  .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+  .meta{margin-top:18px;font-size:12.5px;color:var(--faint);display:flex;gap:14px;flex-wrap:wrap}
+  .meta span{display:inline-flex;align-items:center;gap:6px}
+  .dotsep{width:4px;height:4px;border-radius:50%;background:var(--accent);display:inline-block}
+
+  /* browser mockup */
+  .mock{border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:0 30px 60px -28px rgba(20,20,40,.35),0 8px 24px -16px rgba(20,20,40,.2);overflow:hidden}
+  .mock .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--soft)}
+  .tl{width:11px;height:11px;border-radius:50%}
+  .tl.r{background:#ff5f57}.tl.y{background:#febc2e}.tl.g{background:#28c840}
+  .mock .url{margin-left:8px;flex:1;height:24px;border-radius:7px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--faint)}
+  .mock-body{display:grid;grid-template-columns:1fr 232px;min-height:330px}
+  .page{padding:20px;display:flex;flex-direction:column;gap:11px}
+  .ln{height:9px;border-radius:5px;background:var(--soft)}
+  .ln.t{height:15px;width:62%;background:#e7e6f0}
+  .ln.s{width:90%}.ln.s2{width:78%}.ln.s3{width:84%}.ln.s4{width:54%}
+  .pImg{height:96px;border-radius:10px;background:linear-gradient(120deg,#eef0fb,#e3e7fb);margin:4px 0}
+  .panel{border-left:1px solid var(--line);background:linear-gradient(180deg,#fff,#fbfbff);display:flex;flex-direction:column}
+  .panel .ph{display:flex;align-items:center;gap:8px;padding:11px 12px;border-bottom:1px solid var(--line);font-weight:800;font-size:12.5px}
+  .panel .ph .mark{width:18px;height:18px;border-radius:6px;box-shadow:none}
+  .panel .ph .mark::after{right:3.5px;top:4px;bottom:4px;width:5px;border-radius:2px}
+  .panel .ph .mark::before{left:4.5px;width:4px;height:4px}
+  .chat{padding:12px;display:flex;flex-direction:column;gap:9px;flex:1}
+  .u{align-self:flex-end;background:var(--accent);color:#fff;font-size:11.5px;padding:7px 11px;border-radius:12px 12px 4px 12px;max-width:85%}
+  .step{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:#4a4b54;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+  .step b{color:var(--accent)}
+  .a{font-size:11.5px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:12px 12px 12px 4px;padding:8px 10px}
+  .composer{margin:0 12px 12px;height:30px;border:1px solid var(--line);border-radius:9px;display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--faint)}
+
+  /* sections */
+  section{padding:66px 0}
+  .eyebrow{font-size:12.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  h2{font-size:clamp(24px,3.2vw,36px);line-height:1.12;letter-spacing:-.02em;font-weight:820;margin:12px 0 0}
+  .sec-lede{color:var(--muted);margin-top:14px;max-width:62ch;font-size:clamp(14.5px,1.4vw,16.5px)}
+
+  /* why */
+  .why{background:var(--soft);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .why-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:34px}
+  .why-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+  .why-card .num{font-size:13px;font-weight:800;color:var(--accent);font-family:ui-monospace,Menlo,monospace}
+  .why-card h3{font-size:17px;margin:10px 0 6px;letter-spacing:-.01em}
+  .why-card p{font-size:13.5px;color:var(--muted)}
+  .why-card.hl{background:linear-gradient(160deg,#22317f,#2a4ae0);color:#fff;border-color:transparent}
+  .why-card.hl .num{color:#bcd0ff}
+  .why-card.hl p{color:rgba(255,255,255,.82)}
+
+  /* capabilities */
+  .caps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:36px}
+  .cap{border:1px solid var(--line);border-radius:16px;padding:20px;background:var(--card);transition:transform .15s,box-shadow .15s,border-color .15s}
+  .cap:hover{transform:translateY(-3px);box-shadow:0 16px 30px -22px rgba(20,20,40,.4);border-color:#dcdaea}
+  .cap .ic{width:38px;height:38px;border-radius:11px;background:var(--accent-soft);display:grid;place-items:center;margin-bottom:13px;font-size:19px}
+  .cap h3{font-size:15.5px;letter-spacing:-.01em}
+  .cap p{font-size:12.8px;color:var(--muted);margin-top:5px;line-height:1.55}
+  .toolrow{margin-top:30px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{font-size:12px;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-family:ui-monospace,Menlo,monospace}
+
+  /* steps */
+  .steps{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:36px}
+  .stp{position:relative;padding:22px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+  .stp .n{width:30px;height:30px;border-radius:9px;background:var(--accent);color:#fff;font-weight:800;display:grid;place-items:center;font-size:14px;margin-bottom:13px}
+  .stp h3{font-size:16px;letter-spacing:-.01em}
+  .stp p{font-size:13.5px;color:var(--muted);margin-top:6px}
+  .stp code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:5px}
+  kbd{font-family:inherit;font-size:11.5px;font-weight:700;background:#15151b;color:#fff;border-radius:6px;padding:2px 7px}
+
+  /* safety */
+  .safety{background:#101018;color:var(--ink-rev);border-radius:22px;padding:44px;display:grid;grid-template-columns:1fr 1.3fr;gap:30px;align-items:center}
+  .safety h2{color:#fff}
+  .safety .eyebrow{color:var(--accent-2)}
+  .safety ul{list-style:none;display:grid;gap:14px}
+  .safety li{display:flex;gap:12px;font-size:14px;color:rgba(255,255,255,.82)}
+  .safety li b{color:#fff}
+  .safety li .k{color:var(--accent-2);font-weight:800;flex:none}
+
+  /* cta band */
+  .end{text-align:center;padding:76px 0}
+  .end h2{margin:0 auto}
+  .end .lede{margin:14px auto 0;color:var(--muted);max-width:52ch;font-size:16px}
+  .end .cta{justify-content:center;margin-top:26px}
+
+  footer{border-top:1px solid var(--line);padding:34px 0;color:var(--faint);font-size:13px}
+  footer .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  footer .grow{flex:1}
+
+  @media(max-width:860px){
+    .hero-grid{grid-template-columns:1fr;gap:34px}
+    .mock-body{grid-template-columns:1fr 200px}
+    .why-grid,.caps,.steps{grid-template-columns:1fr}
+    .caps{grid-template-columns:1fr 1fr}
+    .safety{grid-template-columns:1fr;padding:30px}
+  }
+  @media(max-width:520px){
+    .caps{grid-template-columns:1fr}
+    nav a.ghost{display:none}
+    .mock-body{grid-template-columns:1fr 168px}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap row">
+    <span class="mark"></span>
+    <span class="name">ZIJILAI<small>自己来</small></span>
+    <span class="grow"></span>
+    <a class="ghost" href="#why">为什么</a>
+    <a class="ghost" href="#caps">能做什么</a>
+    <a class="ghost" href="#start">怎么用</a>
+    <a class="btn" href="#download">下载</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="kicker">✦ 专为 Claude 打造</span>
+      <h1>给 Claude 装上<br><span class="g">眼睛和手</span></h1>
+      <p class="lede">原生 Claude 能用 MCP 直接连浏览器干活；但通过 <b>API</b> 调用的 Claude 够不着你的浏览器。<b>原生够不着，那就自己来。</b>ZIJILAI 是一个浏览器侧边栏助手，让它替你读网页、点按、填表、整理标签页。</p>
+      <div class="cta">
+        <a class="btn" href="#download">免费下载 ↓</a>
+        <a class="btn alt" href="#start">看看怎么用</a>
+      </div>
+      <div class="meta">
+        <span><span class="dotsep"></span> OpenAI 兼容</span>
+        <span><span class="dotsep"></span> 自带 / 自填 Key</span>
+        <span><span class="dotsep"></span> 纯本地运行</span>
+        <span><span class="dotsep"></span> 可接 MCP</span>
+      </div>
+    </div>
+
+    <div class="mock" aria-hidden="true">
+      <div class="bar">
+        <span class="tl r"></span><span class="tl y"></span><span class="tl g"></span>
+        <span class="url">example.com/article</span>
+      </div>
+      <div class="mock-body">
+        <div class="page">
+          <div class="ln t"></div>
+          <div class="ln s"></div><div class="ln s2"></div>
+          <div class="pImg"></div>
+          <div class="ln s3"></div><div class="ln s"></div><div class="ln s4"></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="mark"></span> ZIJILAI</div>
+          <div class="chat">
+            <div class="u">总结这个页面的要点</div>
+            <div class="step">→ <b>read_page</b></div>
+            <div class="step">→ <b>extract_text</b></div>
+            <div class="a">这篇文章讲了三件事：①…&nbsp;②…&nbsp;③…，要点已按重要性排好。</div>
+          </div>
+          <div class="composer">发消息…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="why" class="why">
+  <div class="wrap">
+    <span class="eyebrow">为什么需要它</span>
+    <h2>API 的 Claude，少了一双眼睛和手</h2>
+    <p class="sec-lede">同样是 Claude，跑在不同地方，能力边界很不一样。ZIJILAI 补的就是中间那道缝。</p>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="num">01</div>
+        <h3>原生 Claude</h3>
+        <p>桌面端、Claude Code 可以通过 MCP 直接连上浏览器和工具，亲手干活。</p>
+      </div>
+      <div class="why-card">
+        <div class="num">02</div>
+        <h3>API 的 Claude</h3>
+        <p>通过 API 调用时，模型够不着你的浏览器——只能聊天，看不到、也碰不到页面。</p>
+      </div>
+      <div class="why-card hl">
+        <div class="num">03</div>
+        <h3>ZIJILAI 自己来</h3>
+        <p>把眼睛和手装进浏览器侧边栏：模型一步步调用工具，真正在页面上干活。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="caps" class="wrap">
+  <span class="eyebrow">它能做什么</span>
+  <h2>看得见，也动得了手</h2>
+  <p class="sec-lede">模型通过「工具调用」自己驱动浏览器完成多步任务，侧边栏实时显示每一步。</p>
+  <div class="caps">
+    <div class="cap"><div class="ic">👁</div><h3>看</h3><p>读取页面元素与文本、抓链接、读选区、截图理解、搜历史与书签。</p></div>
+    <div class="cap"><div class="ic">✋</div><h3>做</h3><p>点击、填表、按键、滚动、前进后退刷新、跳转网址。</p></div>
+    <div class="cap"><div class="ic">🗂</div><h3>管标签</h3><p>列出 / 新开 / 切换 / 关闭，按主题把一堆标签页分组整理。</p></div>
+    <div class="cap"><div class="ic">🔌</div><h3>接 MCP</h3><p>接入第三方远程 MCP 工具，和内置工具一起交给模型调用。</p></div>
+  </div>
+  <div class="toolrow">
+    <span class="chip">read_page</span><span class="chip">find_elements</span><span class="chip">click</span><span class="chip">fill</span><span class="chip">press_key</span><span class="chip">scroll</span><span class="chip">extract_text</span><span class="chip">get_selection</span><span class="chip">get_links</span><span class="chip">screenshot</span><span class="chip">navigate</span><span class="chip">go_back / forward</span><span class="chip">list / open / switch / close_tab</span><span class="chip">group_tabs</span><span class="chip">search_history</span><span class="chip">search_bookmarks</span><span class="chip">+ mcp__*</span>
+  </div>
+</section>
+
+<section id="start" class="wrap">
+  <span class="eyebrow">三步开始</span>
+  <h2>一分钟用起来</h2>
+  <div class="steps">
+    <div class="stp"><div class="n">1</div><h3>装上扩展</h3><p>解压后在 <code>chrome://extensions</code> 打开开发者模式，「加载已解压」选该文件夹。</p></div>
+    <div class="stp"><div class="n">2</div><h3>填好 Key</h3><p>打开设置，选「自填接口」填你自己的 OpenAI 兼容 Base URL + Key + 模型（需支持函数调用）。</p></div>
+    <div class="stp"><div class="n">3</div><h3>开聊</h3><p>点工具栏图标或按 <kbd>⌘⇧K</kbd> 打开侧边栏，直接说「总结这个页面」「整理我的标签」。</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="safety">
+    <div>
+      <span class="eyebrow">关于安全</span>
+      <h2>它在你手里，钥匙也是</h2>
+    </div>
+    <ul>
+      <li><span class="k">本地</span><span>对话、会话历史、设置只存在<b>你的浏览器</b>；网页内容只发往你配置的模型接口，没有中间服务器。</span></li>
+      <li><span class="k">确认</span><span>跳转 / 填写 / 点击 / 开关标签等会改动状态的动作，会先弹<b>确认</b>，你点允许才执行（范围可调）。</span></li>
+      <li><span class="k">隔离</span><span>第三方 MCP 工具的名称与返回内容一律当作<b>外部数据</b>，绝不会被当成指令执行。</span></li>
+      <li><span class="k">自带 Key</span><span>公开版不内置任何密钥，每个人填自己的 Key——<b>钥匙只在你本地</b>。</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="download" class="end">
+  <div class="wrap">
+    <span class="eyebrow">现在就试</span>
+    <h2>让 Claude 替你动手</h2>
+    <p class="lede">下载、解压、加载、填 Key——一分钟，给你的 Claude 装上眼睛和手。</p>
+    <div class="cta">
+      <a class="btn" href="zijilai-public-v0.5.0.zip" id="dl" download>下载 ZIJILAI（公开版）</a>
+      <a class="btn alt" href="#start">安装说明</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap row">
+    <span class="mark" style="width:22px;height:22px;border-radius:7px"></span>
+    <span><b>ZIJILAI</b> · 自己来</span>
+    <span class="grow"></span>
+    <span>给 API 的 Claude 装上眼睛和手 · Manifest V3 · 纯本地</span>
+  </div>
+</footer>
+
+</body>
+</html>
